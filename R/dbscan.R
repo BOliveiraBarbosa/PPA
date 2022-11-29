@@ -5,6 +5,8 @@ library(DBI)
 library(hms)
 library(plotly)
 
+set.seed(123)
+
 # Connect DB -------------------------------------------------------------------
 
 banco <- "bd/busdata.db"
@@ -12,16 +14,18 @@ banco <- "bd/busdata.db"
 conexao <- dbConnect(drv = RSQLite::SQLite(), banco)
 
 busdata <- tbl(conexao, "busdata") %>% 
+  filter(velocity == 0) %>% 
   collect() %>% 
-  # filter(name == 1) %>%
   mutate(
-    date = as.POSIXct(date, origin="1970-01-01", tz="UTC"),
+    date = lubridate::mdy_hms(date),
     date_ymd = as.Date(date),
     date_hms = as_hms(date),
   ) %>% 
-  filter(date_hms > as_hms("00:00:00") & date_hms < as_hms("06:00:00")) %>%
-  # filter(velocity == 0) %>% 
-  select(lat, long)
+  filter(date_hms > as_hms("02:00:00") & date_hms < as_hms("04:00:00")) %>%
+  select(lat, long) %>% 
+  slice_sample(prop = 0.30, replace = FALSE)
+
+dbWriteTable(conexao_db, name = "busdata_utilizados", value = busdata, overwrite = TRUE)
 
 dbDisconnect(conexao)
 
@@ -37,31 +41,28 @@ dist <- c(
 
 dist <- min(dist[dist > 0])
 
-set.seed(123)
+db <- fpc::dbscan(busdata, eps = dist, MinPts = 480)
 
-db <- fpc::dbscan(busdata, eps = dist, MinPts = 240)
-
-print(db)
-
-# Plot -------------------------------------------------------------------------
-
-plot(db, busdata, main = "DBSCAN", frame = FALSE)
+cluster_out <- as.data.frame(print(db))
 
 busdata <- busdata %>% 
   mutate(
     id_agrupamento = db[["cluster"]]
   )
 
-# busdata <- busdata %>% 
-#   filter(id_agrupamento != 0)
+# Plot -------------------------------------------------------------------------
+
+print(db)
 
 fig <- busdata %>% 
   plot_ly(
     lat = ~lat,
     lon = ~long,
     color = ~id_agrupamento,
+    opacity = 0.5,
     type = "scattermapbox",
     mode = "markers",
+    marker = list(colorscale = "Rainbow"),
     hoverinfo = "text",
     text = ~paste(
       "Lat:", lat,
@@ -84,9 +85,16 @@ fig <- busdata %>%
 
 fig
 
+# BD Write ---------------------------------------------------------------------
 
+banco_destino <- "bd/busdata.db"
 
+conexao_db <- dbConnect(RSQLite::SQLite(), banco_destino)
 
+dbWriteTable(conexao_db, name = "cluster_bus", value = busdata, overwrite = TRUE)
+dbWriteTable(conexao_db, name = "cluster_db", value = cluster_out, overwrite = TRUE)
+
+dbDisconnect(conexao_db)
 
 
 
