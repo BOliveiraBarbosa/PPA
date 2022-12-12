@@ -2,7 +2,6 @@
 
 library(tidyverse)
 library(DBI)
-library(hms)
 library(plotly)
 
 set.seed(123)
@@ -13,19 +12,9 @@ banco <- "bd/busdata.db"
 
 conexao <- dbConnect(drv = RSQLite::SQLite(), banco)
 
-busdata <- tbl(conexao, "busdata") %>% 
-  filter(velocity == 0) %>% 
+busdata <- tbl(conexao, "busdata_utilizados") %>% 
   collect() %>% 
-  mutate(
-    date = lubridate::mdy_hms(date),
-    date_ymd = as.Date(date),
-    date_hms = as_hms(date),
-  ) %>% 
-  filter(date_hms > as_hms("02:00:00") & date_hms < as_hms("04:00:00")) %>%
-  select(lat, long) %>% 
-  slice_sample(prop = 0.30, replace = FALSE)
-
-dbWriteTable(conexao_db, name = "busdata_utilizados", value = busdata, overwrite = TRUE)
+  slice_sample(prop = 0.05, replace = FALSE)
 
 dbDisconnect(conexao)
 
@@ -41,14 +30,12 @@ dist <- c(
 
 dist <- min(dist[dist > 0])
 
-db <- fpc::dbscan(busdata, eps = dist, MinPts = 480)
+db <- fpc::dbscan(busdata, eps = dist, MinPts = 240)
 
 cluster_out <- as.data.frame(print(db))
 
-busdata <- busdata %>% 
-  mutate(
-    id_agrupamento = db[["cluster"]]
-  )
+id_agrupamento = db[["cluster"]]
+busdata$id_agrupamento = id_agrupamento
 
 # Plot -------------------------------------------------------------------------
 

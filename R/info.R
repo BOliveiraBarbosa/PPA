@@ -1,36 +1,27 @@
 # Setup/Config -----------------------------------------------------------------
 
 library(tidyverse)
-library(DBI)
 library(plotly)
 
-# Connect DB -------------------------------------------------------------------
+# Read data --------------------------------------------------------------------
 
-banco <- "bd/busdata.db"
+diretorio_busdata <- "cluster"
 
-conexao <- dbConnect(drv = RSQLite::SQLite(), banco)
-
-dbListTables(conexao)
-
-busdata <- tbl(conexao, "busdata") %>% 
-  collect()
-
-bus_linhas <- as.data.frame(unique(busdata$line))
-
-bus_unicos <- as.data.frame(unique(busdata$busid))
-
-cluster_bus <- tbl(conexao, "cluster_bus") %>% 
-  collect()
-
-cluster_db <- tbl(conexao, "cluster_db") %>% 
-  collect()
-
-dbDisconnect(conexao)
+cluster_bus <- list.files(diretorio_busdata) %>%
+  enframe(value = "arquivo") %>% 
+  slice_head(n = 4) %>%
+  rowwise() %>%
+  mutate(
+    conteudo = list(str_glue("{diretorio_busdata}/{arquivo}") %>% read_csv())
+  ) %>%
+  unnest(conteudo) %>%
+  janitor::clean_names()
 
 # Plot -------------------------------------------------------------------------
 
-cluster_bus <- cluster_bus %>%
-  filter(id_agrupamento != 0)
+cluster_bus <- cluster_bus %>% 
+  filter(id_agrupamento != 0) %>% 
+  slice_sample(prop = 0.8,replace = FALSE)
 
 fig <- cluster_bus %>% 
   plot_ly(
@@ -51,11 +42,8 @@ fig <- cluster_bus %>%
   layout(
     mapbox = list(
       style = "open-street-map",
-      zoom = 15,
-      center = list(
-        lat = -22.9125642,
-        lon = -43.2240898
-      )
+      zoom = 9.5,
+      center = list(lat = -22.9, lon = -43.45)
     )
   ) %>% 
   hide_colorbar() %>% 
