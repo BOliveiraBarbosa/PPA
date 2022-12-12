@@ -1,0 +1,146 @@
+---
+title: "Busdata Cluster"
+output: 
+  html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+
+library(tidyverse)
+library(shiny)
+library(plotly)
+library(DBI)
+library(gt)
+
+banco <- "bd/cluster.db"
+
+conexao <- dbConnect(RSQLite::SQLite(), banco)
+
+cluster_busdata_1 <- tbl(conexao, "cluster_busdata_1") %>% 
+    collect()
+
+cluster_busdata_2 <- tbl(conexao, "cluster_busdata_2") %>% 
+  collect()
+
+cluster_busdata_3 <- tbl(conexao, "cluster_busdata_3") %>% 
+  collect()
+
+cluster_busdata_4 <- tbl(conexao, "cluster_busdata_4") %>% 
+  collect()
+
+cluster_busdata <- bind_rows(cluster_busdata_1, cluster_busdata_2, cluster_busdata_3, cluster_busdata_4)
+
+```
+
+## Informações dos Agrupamentos dos Dados de Mobilidade
+```{r}
+
+output$table_cluster_info <- renderTable({
+  
+  cluster_info_1 <- tbl(conexao, "cluster_info_1") %>% 
+    collect()
+
+  cluster_info_2 <- tbl(conexao, "cluster_info_2") %>% 
+    collect()
+
+  cluster_info_3 <- tbl(conexao, "cluster_info_3") %>% 
+    collect()
+
+  cluster_info_4 <- tbl(conexao, "cluster_info_4") %>% 
+    collect()
+
+  cluster_info <- bind_cols(list(cluster_info_1, cluster_info_2, cluster_info_3, cluster_info_4), .name_repair = "unique") %>% 
+    select(-starts_with("0..."))
+  
+  cluster_info$dbscan <- c("border", "seed", "total")
+  
+  cluster_info <- cluster_info %>% 
+    relocate(dbscan)
+  
+  
+  cluster_info
+}, digits = 0)
+
+tableOutput("table_cluster_info")
+
+```
+
+## Mapa do Agrupamentos dos Dados de Mobilidade
+```{r}
+
+output$plot_cluster_map <- renderPlotly({
+  
+  cluster_busdata_sample <- cluster_busdata %>% 
+    filter(id_agrupamento != 0) %>% 
+    slice_sample(prop = 0.8, replace = FALSE)
+  
+  fig <- cluster_busdata_sample %>% 
+    plot_ly(
+      lat = ~lat,
+      lon = ~long,
+      color = ~id_agrupamento,
+      opacity = 0.5,
+      type = "scattermapbox",
+      mode = "markers",
+      marker = list(colorscale = "Rainbow"),
+      hoverinfo = "text",
+      text = ~paste(
+        "Lat:", lat,
+        "Long:" , long, "<br>",
+        " Agrupamento:", id_agrupamento
+      )
+    ) %>%
+    layout(
+      mapbox = list(
+        style = "open-street-map",
+        zoom = 9.5,
+        center = list(lat = -22.9, lon = -43.45)
+      )
+    ) %>% 
+    hide_colorbar() %>% 
+    suppressWarnings() # Remove Warnings 
+  
+  fig
+})
+
+plotlyOutput("plot_cluster_map")
+
+```
+
+## Resultados 
+```{r}
+
+output$table_cluster_resultado <- render_gt({
+  
+  resultado_agrupamento <- cluster_busdata %>% 
+    group_by(id_agrupamento) %>% 
+    summarise(
+      n = n(),
+      lat_max = max(lat),
+      lat_min = min(lat),
+      long_max = max(long),
+      long_min = min(long)
+    ) %>% 
+    gt() %>% 
+    cols_label(
+      id_agrupamento = "ID Agrupamento",
+      n = "Quantidade de Pontos",
+      lat_max = "Latitude Max",
+      lat_min = "Latitude Min",
+      long_max = "Longitude Max",
+      long_min = "Longitude Min"
+    )
+  
+  resultado_agrupamento
+  
+})
+
+gt_output("table_cluster_resultado")
+
+
+```
