@@ -30,4 +30,7 @@ inicializa_dados <- function(banco_destino = "bd/busdata.db"){
   dbWriteTable(conexao_db, "busdata_filtrado", busdata_filtrado, overwrite = TRUE)
   
   dbDisconnect(conexao_db)
+  
+  rm(list = ls(all = TRUE))
+  gc()
 }

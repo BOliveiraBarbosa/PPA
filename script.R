@@ -5,8 +5,8 @@ library(arrow)
 library(hms)
 library(tictoc)
 
-# source("R/inicializa_dados.R")
+source("R/inicializa_dados.R")
 source("R/dbscan.R")
 
-# inicializa_dados()
+inicializa_dados()
 dbscan_parte()

@@ -6,10 +6,9 @@ calcula_dbscan <- function(
     count = 0,
     banco = "bd/cluster.db"
   ){
-  
   tic()
   
-  conexao <- dbConnect(drv = RSQLite::SQLite(), banco)
+  writeLines(paste("\n~~ ", num, "/4 ~~\n", sep = ""))
   
   db <- fpc::dbscan(busdata_cluster, eps = dist, MinPts = min_pts)
   
@@ -32,18 +31,22 @@ calcula_dbscan <- function(
     pull(id_agrupamento) %>% 
     sort()
   
-  dbWriteTable(conexao, paste0("cluster_busdata_", num), busdata_cluster, overwrite = TRUE)
-  
-  dbWriteTable(conexao, paste0("cluster_info_", num), cluster_info, overwrite = TRUE)
-  
-  dbDisconnect(conexao)
+  # conexao <- dbConnect(drv = RSQLite::SQLite(), banco)
+  # 
+  # dbWriteTable(conexao, paste0("cluster_busdata_", num), busdata_cluster, overwrite = TRUE)
+  # 
+  # dbWriteTable(conexao, paste0("cluster_info_", num), cluster_info, overwrite = TRUE)
+  # 
+  # dbDisconnect(conexao)
   
   count <- max(busdata_cluster$id_agrupamento)
   
   toc()
   
-  # rm(list=ls())
-  # .rs.restartR()
+  rm(list = ls(all = TRUE)[ls(all = TRUE) != "count"])
+  gc()
+
+  return(count)
 }
 
 dbscan_parte <- function(banco = "bd/busdata.db"){
@@ -66,55 +69,48 @@ dbscan_parte <- function(banco = "bd/busdata.db"){
   
   # 1/4 ------------------------------------------------------------------------
   
-  # writeLines("\n~~ 1/4 ~~\n")
+  busdata_cluster <- busdata %>%
+    slice_head(n = 100000)
   
-  # busdata_cluster <- busdata %>% 
-  #   slice_head(n = 100000)
-  # 
-  # calcula_dbscan(busdata_cluster, dist, min_pts, 1, 0)
+  count <- calcula_dbscan(busdata_cluster, dist, min_pts, 1, 0)
   
   # 2/4 ------------------------------------------------------------------------
-  
-  # writeLines("\n~~ 2/4 ~~\n")
-  
-  # busdata_cluster <- busdata %>% 
-  #   slice_tail(n = 100000)
-  # 
-  # calcula_dbscan(busdata_cluster, dist, min_pts, 2, 9)
+
+  busdata_cluster <- busdata %>%
+    slice_tail(n = 100000)
+
+  count <- calcula_dbscan(busdata_cluster, dist, min_pts, 2, count)
   
   # 3/4 ------------------------------------------------------------------------
   
-  # writeLines("\n~~ 3/4 ~~\n")
-  
-  # busdata_range <- busdata %>% 
-  #   filter(row_number() %in% c(100000, n() - 100000)) %>% 
-  #   select(long) %>% 
+  # busdata_range <- busdata %>%
+  #   filter(row_number() %in% c(100000, n() - 100000)) %>%
+  #   select(long) %>%
   #   t() %>% as.data.frame()
   # 
-  # busdata_cluster <- busdata %>% 
+  # busdata_cluster <- busdata %>%
   #   filter(
   #     long >= busdata_range$V1 - 2 * dist &
-  #       long <= busdata_range$V2 + 2 * dist
-  #   ) %>% 
+  #     long <= busdata_range$V2 + 2 * dist
+  #   ) %>%
   #   slice_head(n = 100000)
   # 
-  # calcula_dbscan(busdata_cluster, dist, min_pts, 3, 21)
+  # count <- calcula_dbscan(busdata_cluster, dist, min_pts, 3, count)
   
   # 4/4 ------------------------------------------------------------------------
   
-  writeLines("\n~~ 4/4 ~~\n")
-  
-  busdata_range <- busdata %>%
-    filter(row_number() %in% c(100000, n() - 100000)) %>%
-    select(long) %>%
-    t() %>% as.data.frame()
-
-  busdata_cluster <- busdata %>%
-    filter(
-      long >= busdata_range$V1 - 2 * dist &
-        long <= busdata_range$V2 + 2 * dist
-    ) %>%
-    slice_tail(n = 95000)
-
-  calcula_dbscan(busdata_cluster, dist, min_pts, 4, 29)
+  # busdata_range <- busdata %>%
+  #   filter(row_number() %in% c(100000, n() - 100000)) %>%
+  #   select(long) %>%
+  #   t() %>% as.data.frame()
+  # 
+  # 
+  # busdata_cluster <- busdata %>%
+  #   filter(
+  #     long >= busdata_range$V1 - 2 * dist &
+  #     long <= busdata_range$V2 + 2 * dist
+  #   ) %>%
+  #   slice_tail(n = 95000)
+  # 
+  # count <- calcula_dbscan(busdata_cluster, dist, min_pts, 4, count)
 }

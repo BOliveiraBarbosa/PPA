@@ -40,7 +40,7 @@ cluster_busdata <- bind_rows(cluster_busdata_1, cluster_busdata_2, cluster_busda
 ## Informações dos Agrupamentos dos Dados de Mobilidade
 ```{r}
 
-output$table_cluster_info <- renderTable({
+output$table_cluster_info <- render_gt({
   
   cluster_info_1 <- tbl(conexao, "cluster_info_1") %>% 
     collect()
@@ -60,13 +60,14 @@ output$table_cluster_info <- renderTable({
   cluster_info$dbscan <- c("border", "seed", "total")
   
   cluster_info <- cluster_info %>% 
-    relocate(dbscan)
-  
+    relocate(dbscan) %>% 
+    gt()
   
   cluster_info
-}, digits = 0)
+  
+})
 
-tableOutput("table_cluster_info")
+gt_output("table_cluster_info")
 
 ```
 
@@ -77,7 +78,7 @@ output$plot_cluster_map <- renderPlotly({
   
   cluster_busdata_sample <- cluster_busdata %>% 
     filter(id_agrupamento != 0) %>% 
-    slice_sample(prop = 0.8, replace = FALSE)
+    slice_sample(prop = 0.3, replace = FALSE)
   
   fig <- cluster_busdata_sample %>% 
     plot_ly(
@@ -110,14 +111,56 @@ output$plot_cluster_map <- renderPlotly({
 
 plotlyOutput("plot_cluster_map")
 
+downloadLink("download_dados", "Download Busdata Filtrado")
+
+output$download_dados <- downloadHandler(
+  filename = function(){paste("download_busdata_filtrado", ".csv", sep = "")},
+  content = function(file){write.csv(cluster_busdata, file, row.names = FALSE)}
+)
+
 ```
 
 ## Resultados 
 ```{r}
 
-output$table_cluster_resultado <- render_gt({
-  
-  resultado_agrupamento <- cluster_busdata %>% 
+nome_empresa_garagem <- tribble(
+  ~id_agrupamento, ~nome_empresa,
+  0,               NA, # ruido
+  1,               NA, # N é garagem
+  2,               NA, # N é garagem
+  3,               "Transriver Transportes", # Vẽ depois 
+  4,               "Expresso Pégaso",
+  5,               "Expresso Recreio",
+  6,               "Auto Viação Jabour",
+  7,               "Transportes Campo Grande",
+  8,               "Transportes Barra Garagem 2",
+  9,               "Viação Pavunense",
+  10,              "Viação Redentor/Transportes Futuro", # Vê depois
+  11,              "Viação VG",
+  12,              "Garagem da Caprichosa/Caprichosa Auto Ônibus ",
+  13,              "Rodoviária A. Matias",
+  14,              "Garagem Gire Transportes - Duque de Caxias",
+  15,              "Braso Lisboa",
+  16,              "Viação Nossa Senhora de Lourdes",
+  17,              "Gire Transportes - Bonsucesso",
+  18,              "Transportes Vila Isabel",
+  19,              "Real Auto Ônibus",
+  20,              NA, # N é garagem
+  21,              "Viação Ideal",
+  22,              "Viação Pavunense G3",
+  23,              "Viação Novacap S/A",
+  24,              "Tel Transportes Estrela",
+  25,              NA, # N é garagem
+  26,              NA, # N é garagem
+  27,              "Transportes Barra", 
+  28,              "Auto Viação Três Amigos",
+  29,              "Viação Redentor/Transportes Futuro",
+  30,              "Transportes Barra",
+  31,              "Auto Viação Três Amigos",
+  32,              "Viação Redentor/Transportes Futuro",
+)
+
+resultado_agrupamento <- cluster_busdata %>% 
     group_by(id_agrupamento) %>% 
     summarise(
       n = n(),
@@ -126,6 +169,8 @@ output$table_cluster_resultado <- render_gt({
       long_max = max(long),
       long_min = min(long)
     ) %>% 
+    left_join(nome_empresa_garagem) %>% 
+    distinct(nome_empresa, .keep_all = TRUE) %>% 
     gt() %>% 
     cols_label(
       id_agrupamento = "ID Agrupamento",
@@ -133,8 +178,11 @@ output$table_cluster_resultado <- render_gt({
       lat_max = "Latitude Max",
       lat_min = "Latitude Min",
       long_max = "Longitude Max",
-      long_min = "Longitude Min"
+      long_min = "Longitude Min",
+      nome_empresa = "Nome Empresa"
     )
+
+output$table_cluster_resultado <- render_gt({
   
   resultado_agrupamento
   
@@ -142,5 +190,11 @@ output$table_cluster_resultado <- render_gt({
 
 gt_output("table_cluster_resultado")
 
+downloadLink("download_resultado", "Download Resultado")
+
+output$download_resultado <- downloadHandler(
+  filename = function(){paste("cluster_resultado", ".csv", sep = "")},
+  content = function(file){write.csv(resultado_agrupamento, file, row.names = FALSE)}
+)
 
 ```
