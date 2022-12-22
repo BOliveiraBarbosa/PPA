@@ -1,8 +1,8 @@
 ---
 title: "Busdata Cluster"
+runtime: shiny
 output: 
   html_document
-runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
@@ -21,40 +21,31 @@ banco <- "bd/cluster.db"
 
 conexao <- dbConnect(RSQLite::SQLite(), banco)
 
-cluster_busdata_1 <- tbl(conexao, "cluster_busdata_1") %>% 
-    collect()
-
-cluster_busdata_2 <- tbl(conexao, "cluster_busdata_2") %>% 
-  collect()
-
-cluster_busdata_3 <- tbl(conexao, "cluster_busdata_3") %>% 
-  collect()
-
-cluster_busdata_4 <- tbl(conexao, "cluster_busdata_4") %>% 
-  collect()
-
-cluster_busdata <- bind_rows(cluster_busdata_1, cluster_busdata_2, cluster_busdata_3, cluster_busdata_4)
+cluster_busdata <- bind_rows(
+  tbl(conexao, "cluster_busdata_1") %>% collect(),
+  tbl(conexao, "cluster_busdata_2") %>% collect(),
+  tbl(conexao, "cluster_busdata_3") %>% collect(),
+  tbl(conexao, "cluster_busdata_4") %>% collect()
+)
 
 ```
 
-## Informações dos Agrupamentos dos Dados de Mobilidade
+## Agrupamentos dos Dados de Mobilidade
+
+### Informações dos Agrupamentos dos Dados de Mobilidade
 ```{r}
 
 output$table_cluster_info <- render_gt({
-  
-  cluster_info_1 <- tbl(conexao, "cluster_info_1") %>% 
-    collect()
 
-  cluster_info_2 <- tbl(conexao, "cluster_info_2") %>% 
-    collect()
-
-  cluster_info_3 <- tbl(conexao, "cluster_info_3") %>% 
-    collect()
-
-  cluster_info_4 <- tbl(conexao, "cluster_info_4") %>% 
-    collect()
-
-  cluster_info <- bind_cols(list(cluster_info_1, cluster_info_2, cluster_info_3, cluster_info_4), .name_repair = "unique") %>% 
+  cluster_info <- bind_cols(
+    list(
+      tbl(conexao, "cluster_info_1") %>% collect(),
+      tbl(conexao, "cluster_info_2") %>% collect(),
+      tbl(conexao, "cluster_info_3") %>% collect(),
+      tbl(conexao, "cluster_info_4") %>% collect()
+    ),
+    .name_repair = "unique"
+  ) %>% 
     select(-starts_with("0..."))
   
   cluster_info$dbscan <- c("border", "seed", "total")
@@ -71,7 +62,7 @@ gt_output("table_cluster_info")
 
 ```
 
-## Mapa do Agrupamentos dos Dados de Mobilidade
+### Mapa dos Agrupamentos dos Dados de Mobilidade
 ```{r}
 
 output$plot_cluster_map <- renderPlotly({
@@ -120,7 +111,7 @@ output$download_dados <- downloadHandler(
 
 ```
 
-## Resultados 
+### Resultados 
 ```{r}
 
 nome_empresa_garagem <- tribble(
@@ -196,5 +187,70 @@ output$download_resultado <- downloadHandler(
   filename = function(){paste("cluster_resultado", ".csv", sep = "")},
   content = function(file){write.csv(resultado_agrupamento, file, row.names = FALSE)}
 )
+
+```
+
+## Agrupamentos Pequenos 
+
+### Informações dos Agrupamentos Pequenos
+```{r}
+
+output$table_cluster_pequeno_info <- render_gt({
+
+  cluster_info <- tbl(conexao, "cluster_info_5") %>% collect()
+  
+  cluster_info$dbscan <- c("border", "seed", "total")
+  
+  cluster_info <- cluster_info %>% 
+    relocate(dbscan) %>% 
+    gt()
+  
+  cluster_info
+  
+})
+
+gt_output("table_cluster_pequeno_info")
+
+```
+
+### Mapa dos Agrupamentos Pequenos
+```{r}
+
+output$plot_cluster_pequeno_map <- renderPlotly({
+  
+  cluster_pequeno <- tbl(conexao, "cluster_busdata_5") %>% 
+    collect()%>% 
+    filter(id_agrupamento != 0)
+  
+  fig <- cluster_pequeno %>% 
+    plot_ly(
+      lat = ~lat,
+      lon = ~long,
+      color = ~id_agrupamento,
+      opacity = 0.5,
+      type = "scattermapbox",
+      mode = "markers",
+      marker = list(colorscale = "Rainbow"),
+      hoverinfo = "text",
+      text = ~paste(
+        "Lat:", lat,
+        "Long:" , long, "<br>",
+        " Agrupamento:", id_agrupamento
+      )
+    ) %>%
+    layout(
+      mapbox = list(
+        style = "open-street-map",
+        zoom = 9.5,
+        center = list(lat = -22.9, lon = -43.45)
+      )
+    ) %>% 
+    hide_colorbar() %>% 
+    suppressWarnings() # Remove Warnings 
+  
+  fig
+})
+
+plotlyOutput("plot_cluster_pequeno_map")
 
 ```

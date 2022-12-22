@@ -1,4 +1,4 @@
-# TODO: .rs.restartR() - estender como essa função funciona e continua rodando
+# TODO: .rs.restartR() - entender como essa função funciona e continua rodando
 
 # IDEIA - antes de usar ele guarda em um txt o num da function "calcula_dbscan"
 # Assim vai saber onde parou, e coloca no iniciar do R para rodar o script 
@@ -102,10 +102,10 @@ db <- fpc::dbscan(busdata_filtrado, eps = dist, MinPts = min_pts)
 id_agrupamento = db[["cluster"]]
 busdata_filtrado$id_agrupamento = id_agrupamento
 
-count <- 32
+count <- 0
 
-busdata_filtrado <- busdata_filtrado %>% 
-  rowwise() %>% 
+busdata_filtrado <- busdata_filtrado %>%
+  rowwise() %>%
   mutate(
     id_agrupamento = case_when(
       id_agrupamento == 0 ~ id_agrupamento,
@@ -115,16 +115,16 @@ busdata_filtrado <- busdata_filtrado %>%
 
 cluster_info <- as.data.frame(print(db))
 
-colnames(cluster_info) <- busdata_filtrado %>% 
-  distinct(id_agrupamento) %>% 
-  pull(id_agrupamento) %>% 
+colnames(cluster_info) <- busdata_filtrado %>%
+  distinct(id_agrupamento) %>%
+  pull(id_agrupamento) %>%
   sort()
 
 num <- 5
 
-# dbWriteTable(conexao, paste0("cluster_busdata_", num), busdata_cluster, overwrite = TRUE)
+dbWriteTable(conexao, paste0("cluster_busdata_", num), busdata_filtrado, overwrite = TRUE)
 
-# dbWriteTable(conexao, paste0("cluster_info_", num), cluster_info, overwrite = TRUE)
+dbWriteTable(conexao, paste0("cluster_info_", num), cluster_info, overwrite = TRUE)
 
 # Plot -------------------------------------------------------------------------
 
