@@ -16,6 +16,8 @@ library(shiny)
 library(plotly)
 library(DBI)
 library(gt)
+library(stringr)
+
 
 banco <- "bd/cluster.db"
 
@@ -25,7 +27,9 @@ cluster_busdata <- bind_rows(
   tbl(conexao, "cluster_busdata_1") %>% collect(),
   tbl(conexao, "cluster_busdata_2") %>% collect(),
   tbl(conexao, "cluster_busdata_3") %>% collect(),
-  tbl(conexao, "cluster_busdata_4") %>% collect()
+  tbl(conexao, "cluster_busdata_4") %>% collect(),
+  tbl(conexao, "cluster_busdata_5") %>% collect(),
+  tbl(conexao, "cluster_busdata_6") %>% collect()
 )
 
 ```
@@ -35,23 +39,28 @@ cluster_busdata <- bind_rows(
 ### Informações dos Agrupamentos dos Dados de Mobilidade
 ```{r}
 
-output$table_cluster_info <- render_gt({
-
   cluster_info <- bind_cols(
     list(
       tbl(conexao, "cluster_info_1") %>% collect(),
       tbl(conexao, "cluster_info_2") %>% collect(),
       tbl(conexao, "cluster_info_3") %>% collect(),
-      tbl(conexao, "cluster_info_4") %>% collect()
+      tbl(conexao, "cluster_info_4") %>% collect(),
+      tbl(conexao, "cluster_info_5") %>% collect(),
+      tbl(conexao, "cluster_info_6") %>% collect()
     ),
-    .name_repair = "unique"
-  ) %>% 
-    select(-starts_with("0..."))
+    .name_repair = "minimal"
+  )
+  
+  cluster_info <- as.data.frame(t(rowsum(t(cluster_info), group = colnames(cluster_info), na.rm = T)))
   
   cluster_info$dbscan <- c("border", "seed", "total")
   
   cluster_info <- cluster_info %>% 
-    relocate(dbscan) %>% 
+    select(dbscan, str_sort(colnames(.), numeric = TRUE))
+  
+output$table_cluster_info <- render_gt({
+  
+  cluster_info <- cluster_info %>%  
     gt()
   
   cluster_info
@@ -59,6 +68,13 @@ output$table_cluster_info <- render_gt({
 })
 
 gt_output("table_cluster_info")
+
+downloadLink("download_cluster_info", "Download Informações Cluster")
+
+output$download_cluster_info <- downloadHandler(
+  filename = function(){paste("info_cluster", ".csv", sep = "")},
+  content = function(file){write.csv(cluster_info, file, row.names = FALSE)}
+)
 
 ```
 
@@ -69,7 +85,7 @@ output$plot_cluster_map <- renderPlotly({
   
   cluster_busdata_sample <- cluster_busdata %>% 
     filter(id_agrupamento != 0) %>% 
-    slice_sample(prop = 0.3, replace = FALSE)
+    slice_sample(prop = 0.4, replace = FALSE)
   
   fig <- cluster_busdata_sample %>% 
     plot_ly(
@@ -102,10 +118,10 @@ output$plot_cluster_map <- renderPlotly({
 
 plotlyOutput("plot_cluster_map")
 
-downloadLink("download_dados", "Download Busdata Filtrado")
+downloadLink("download_dados", "Download Dados Cluster")
 
 output$download_dados <- downloadHandler(
-  filename = function(){paste("download_busdata_filtrado", ".csv", sep = "")},
+  filename = function(){paste("dados_cluster_filtrado", ".csv", sep = "")},
   content = function(file){write.csv(cluster_busdata, file, row.names = FALSE)}
 )
 
@@ -126,29 +142,24 @@ nome_empresa_garagem <- tribble(
   7,               "Transportes Campo Grande",
   8,               "Transportes Barra Garagem 2",
   9,               "Viação Pavunense",
-  10,              "Viação Redentor/Transportes Futuro", # Vê depois
-  11,              "Viação VG",
-  12,              "Garagem da Caprichosa/Caprichosa Auto Ônibus ",
-  13,              "Rodoviária A. Matias",
-  14,              "Garagem Gire Transportes - Duque de Caxias",
-  15,              "Braso Lisboa",
-  16,              "Viação Nossa Senhora de Lourdes",
-  17,              "Gire Transportes - Bonsucesso",
-  18,              "Transportes Vila Isabel",
-  19,              "Real Auto Ônibus",
-  20,              NA, # N é garagem
-  21,              "Viação Ideal",
-  22,              "Viação Pavunense G3",
-  23,              "Viação Novacap S/A",
-  24,              "Tel Transportes Estrela",
-  25,              NA, # N é garagem
+  10,              "Viação Novacap S/A",
+  11,              "TEL Transportes Estrela",
+  12,              NA, # N é garagem
+  13,              NA, # N é garagem
+  14,              "Transportes Barra",
+  15,              "Auto Viação Três Amigos",
+  16,              "Viação Redentor/Transportes Futuro", # Vê depois
+  17,              "Viação VG",
+  18,              "Garagem da Caprichosa/Caprichosa Auto Ônibus",
+  19,              "Rodoviária A. Matias",
+  20,              "Garagem Gire Transportes - Duque de Caxias",
+  21,              "Braso Lisboa",
+  22,              "Viação Nossa Senhora de Lourdes",
+  23,              "Gire Transportes - Bonsucesso",
+  24,              "Transportes Vila Isabel",
+  25,              "Real Auto Ônibus",
   26,              NA, # N é garagem
-  27,              "Transportes Barra", 
-  28,              "Auto Viação Três Amigos",
-  29,              "Viação Redentor/Transportes Futuro",
-  30,              "Transportes Barra",
-  31,              "Auto Viação Três Amigos",
-  32,              "Viação Redentor/Transportes Futuro",
+  27,              "Viação Ideal",
 )
 
 resultado_agrupamento <- cluster_busdata %>% 
@@ -161,7 +172,6 @@ resultado_agrupamento <- cluster_busdata %>%
       long_min = min(long)
     ) %>% 
     left_join(nome_empresa_garagem) %>% 
-    distinct(nome_empresa, .keep_all = TRUE) %>% 
     gt() %>% 
     cols_label(
       id_agrupamento = "ID Agrupamento",
@@ -195,21 +205,30 @@ output$download_resultado <- downloadHandler(
 ### Informações dos Agrupamentos Pequenos
 ```{r}
 
+  cluster_info_pequeno <- tbl(conexao, "cluster_info_7") %>% collect()
+  
+  cluster_info_pequeno$dbscan <- c("border", "seed", "total")
+  
+  cluster_info_pequeno <- cluster_info_pequeno %>% 
+    relocate(dbscan)
+  
 output$table_cluster_pequeno_info <- render_gt({
 
-  cluster_info <- tbl(conexao, "cluster_info_5") %>% collect()
-  
-  cluster_info$dbscan <- c("border", "seed", "total")
-  
-  cluster_info <- cluster_info %>% 
-    relocate(dbscan) %>% 
+  cluster_info_pequeno <- cluster_info_pequeno %>% 
     gt()
   
-  cluster_info
+  cluster_info_pequeno
   
 })
 
 gt_output("table_cluster_pequeno_info")
+
+downloadLink("download_cluster_info_pequeno", "Download Informações Cluster Pequeno")
+
+output$download_cluster_info_pequeno <- downloadHandler(
+  filename = function(){paste("info_cluster_pequeno", ".csv", sep = "")},
+  content = function(file){write.csv(cluster_info_pequeno, file, row.names = FALSE)}
+)
 
 ```
 
@@ -218,8 +237,8 @@ gt_output("table_cluster_pequeno_info")
 
 output$plot_cluster_pequeno_map <- renderPlotly({
   
-  cluster_pequeno <- tbl(conexao, "cluster_busdata_5") %>% 
-    collect()%>% 
+  cluster_pequeno <- tbl(conexao, "cluster_busdata_7") %>% 
+    collect() %>% 
     filter(id_agrupamento != 0)
   
   fig <- cluster_pequeno %>% 
@@ -252,5 +271,12 @@ output$plot_cluster_pequeno_map <- renderPlotly({
 })
 
 plotlyOutput("plot_cluster_pequeno_map")
+
+downloadLink("download_dados_pequenos", "Download Dados Cluster Pequenos")
+
+output$download_dados_pequenos <- downloadHandler(
+  filename = function(){paste("dados_cluster_pequenos", ".csv", sep = "")},
+  content = function(file){write.csv(tbl(conexao, "cluster_busdata_7") %>% collect(), file, row.names = FALSE)}
+)
 
 ```
