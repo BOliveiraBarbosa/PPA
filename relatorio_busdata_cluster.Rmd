@@ -172,6 +172,7 @@ resultado_agrupamento <- cluster_busdata %>%
       long_min = min(long)
     ) %>% 
     left_join(nome_empresa_garagem) %>% 
+    filter(id_agrupamento != 0) %>% 
     gt() %>% 
     cols_label(
       id_agrupamento = "ID Agrupamento",
@@ -277,6 +278,47 @@ downloadLink("download_dados_pequenos", "Download Dados Cluster Pequenos")
 output$download_dados_pequenos <- downloadHandler(
   filename = function(){paste("dados_cluster_pequenos", ".csv", sep = "")},
   content = function(file){write.csv(tbl(conexao, "cluster_busdata_7") %>% collect(), file, row.names = FALSE)}
+)
+
+```
+
+### Resultados dos Agrupamentos Pequenos
+```{r}
+
+resultado_cluster_pequenos <- tbl(conexao, "cluster_busdata_7") %>% 
+  collect() %>% 
+  group_by(id_agrupamento) %>% 
+  summarise(
+    n = n(),
+    lat_max = max(lat),
+    lat_min = min(lat),
+    long_max = max(long),
+    long_min = min(long)
+  ) %>% 
+  filter(id_agrupamento != 0) %>% 
+  gt() %>% 
+  cols_label(
+    id_agrupamento = "ID Agrupamento",
+    n = "Quantidade de Pontos",
+    lat_max = "Latitude Max",
+    lat_min = "Latitude Min",
+    long_max = "Longitude Max",
+    long_min = "Longitude Min",
+  )
+
+output$table_cluster_pequeno_resultado <- render_gt({
+  
+  resultado_cluster_pequenos
+  
+})
+
+gt_output("table_cluster_pequeno_resultado")
+
+downloadLink("download_cluster_pequeno_resultado", "Download Resultado Cluster Pequenos")
+
+output$download_cluster_pequeno_resultado <- downloadHandler(
+  filename = function(){paste("cluster_pequeno_resultado", ".csv", sep = "")},
+  content = function(file){write.csv(resultado_cluster_pequenos, file, row.names = FALSE)}
 )
 
 ```
